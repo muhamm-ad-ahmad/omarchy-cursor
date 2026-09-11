@@ -1,0 +1,501 @@
+#!/usr/bin/env bash
+#
+# omarchy-cursor — Cursor theme manager for Omarchy Linux
+# Manages, installs, and applies cursor themes across Hyprland, GTK, and XWayland.
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+ICONS_DIRS=("$HOME/.local/share/icons" "$HOME/.icons" "/usr/share/icons")
+
+CURATED_THEMES=(
+  "bibata-cursor-theme|Bibata Modern Classic|Material-based rounded cursor with sharp black accents|aur"
+  "catppuccin-cursors|Catppuccin Cursors|Soothing pastel cursor themes (Mocha, Macchiato, Frappe, Latte)|aur"
+  "breeze-cursors|Breeze Cursors|Official KDE Plasma Breeze Dark and Breeze Light cursors|extra"
+  "breezex-cursor-theme|BreezeX|Modern reimagined Breeze cursors with smooth gradients|aur"
+  "capitaine-cursors|Capitaine Cursors|Crisp macOS-inspired cursor pack with clean arrows|extra"
+  "nordzy-cursors|Nordzy Cursors|Dark aesthetic cursor theme built for the Nord color palette|aur"
+  "posy-cursor-tweaks|Posy's Cursors|Ergonomic, minimalist high-visibility cursors by Michiel de Boer|aur"
+  "volantes-cursors|Volantes Cursors|Sharp, geometric, modern cursor pack|aur"
+  "apple-cursor|Apple Cursor|Pixel-perfect macOS style cursor theme|aur"
+  "oreo-cursors-git|Oreo Cursors|Modern material design cursors with vibrant accent borders|aur"
+  "material-cursors|Material Cursors|Clean Material Design cursors with crisp outlines|aur"
+  "phinger-cursors|Phinger Cursors|Sophisticated, high-visibility cursor theme for Linux|aur"
+)
+
+notify() {
+  local msg="$1"
+  if command -v omarchy-notification-send >/dev/null 2>&1; then
+    omarchy-notification-send -g "$msg"
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send "Omarchy Cursor" "$msg"
+  fi
+}
+
+get_current_theme() {
+  local theme=""
+  if command -v gsettings >/dev/null 2>&1; then
+    theme=$(gsettings get org.gnome.desktop.interface cursor-theme 2>/dev/null | tr -d "'\"" || true)
+  fi
+  if [[ -z "$theme" || "$theme" == "default" ]]; then
+    if [[ -f "$HOME/.icons/default/index.theme" ]]; then
+      theme=$(grep -m1 '^Inherits=' "$HOME/.icons/default/index.theme" | cut -d= -f2- | tr -d ' \r\n')
+    fi
+  fi
+  if [[ -z "$theme" ]]; then
+    theme="${XCURSOR_THEME:-breeze_cursors}"
+  fi
+  echo "$theme"
+}
+
+get_current_size() {
+  local size=""
+  if command -v gsettings >/dev/null 2>&1; then
+    size=$(gsettings get org.gnome.desktop.interface cursor-size 2>/dev/null || true)
+  fi
+  if [[ -z "$size" || "$size" == "0" ]]; then
+    size="${XCURSOR_SIZE:-24}"
+  fi
+  echo "$size"
+}
+
+get_theme_friendly_name() {
+  local id="$1"
+  local friendly="$id"
+  for base in "${ICONS_DIRS[@]}"; do
+    local idx="$base/$id/index.theme"
+    if [[ -f "$idx" ]]; then
+      local n
+      n=$(grep -m1 '^Name=' "$idx" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+      if [[ -n "$n" ]]; then
+        friendly="$n"
+        break
+      fi
+    fi
+  done
+  echo "$friendly"
+}
+
+cmd_current() {
+  local json=false
+  if [[ "${1:-}" == "--json" ]]; then
+    json=true
+  fi
+
+  local cur_id
+  cur_id=$(get_current_theme)
+  local cur_size
+  cur_size=$(get_current_size)
+  local cur_name
+  cur_name=$(get_theme_friendly_name "$cur_id")
+
+  if $json; then
+    printf '{"id":"%s","name":"%s","size":%d}\n' "$cur_id" "$cur_name" "$cur_size"
+  else
+    echo "Current cursor: $cur_name ($cur_id)"
+    echo "Size: ${cur_size}px"
+  fi
+}
+
+cmd_list() {
+  local json=false
+  if [[ "${1:-}" == "--json" ]]; then
+    json=true
+  fi
+
+  local cur_id
+  cur_id=$(get_current_theme)
+
+  declare -A seen
+  local themes=()
+
+  for base in "${ICONS_DIRS[@]}"; do
+    [[ -d "$base" ]] || continue
+    for d in "$base"/*; do
+      [[ -d "$d" ]] || continue
+      if [[ -d "$d/cursors" || -d "$d/hyprcursors" ]]; then
+        local id
+        id=$(basename "$d")
+        if [[ -z "${seen[$id]:-}" ]]; then
+          seen[$id]=1
+          local name="$id"
+          if [[ -f "$d/index.theme" ]]; then
+            local n
+            n=$(grep -m1 '^Name=' "$d/index.theme" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+            [[ -n "$n" ]] && name="$n"
+          fi
+          local is_cur="false"
+          [[ "$id" == "$cur_id" ]] && is_cur="true"
+          themes+=("$id|$name|$d|$is_cur")
+        fi
+      fi
+    done
+  done
+
+  # Sort by name
+  IFS=$'\n' sorted=($(sort -t'|' -k2 <<<"${themes[*]}"))
+  unset IFS
+
+  if $json; then
+    local json_items=()
+    for item in "${sorted[@]}"; do
+      IFS='|' read -r id name path is_cur <<<"$item"
+      json_items+=("{\"id\":\"$id\",\"name\":\"$name\",\"path\":\"$path\",\"current\":$is_cur}")
+    done
+    local joined
+    joined=$(IFS=,; echo "${json_items[*]}")
+    echo "[$joined]"
+  else
+    printf "%-30s %-30s %s\n" "THEME ID" "FRIENDLY NAME" "STATUS"
+    printf "%-30s %-30s %s\n" "------------------------------" "------------------------------" "------"
+    for item in "${sorted[@]}"; do
+      IFS='|' read -r id name path is_cur <<<"$item"
+      local status=""
+      if [[ "$is_cur" == "true" ]]; then
+        status="[ACTIVE]"
+      fi
+      printf "%-30s %-30s %s\n" "$id" "$name" "$status"
+    done
+  fi
+}
+
+cmd_set() {
+  local theme_id="${1:-}"
+  local size="${2:-}"
+
+  if [[ -z "$theme_id" ]]; then
+    echo "Usage: omarchy-cursor set <theme-id> [size]" >&2
+    exit 1
+  fi
+
+  if [[ -z "$size" ]]; then
+    size=$(get_current_size)
+  fi
+
+  # Validate theme exists
+  local found=false
+  for base in "${ICONS_DIRS[@]}"; do
+    if [[ -d "$base/$theme_id/cursors" || -d "$base/$theme_id/hyprcursors" ]]; then
+      found=true
+      break
+    fi
+  done
+
+  if [[ "$found" == "false" ]]; then
+    echo "Error: Cursor theme '$theme_id' not found in icons directories." >&2
+    echo "Run 'omarchy-cursor list' to see installed themes." >&2
+    exit 1
+  fi
+
+  local friendly_name
+  friendly_name=$(get_theme_friendly_name "$theme_id")
+
+  echo "Applying cursor theme: $friendly_name ($theme_id) at ${size}px..."
+
+  # 1. Live Hyprland session
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl setcursor "$theme_id" "$size" >/dev/null 2>&1 || true
+  fi
+
+  # 2. Hyprland configuration files
+  local hypr_conf="$HOME/.config/hypr/hyprland.lua"
+  local autostart_conf="$HOME/.config/hypr/autostart.lua"
+
+  if [[ -f "$hypr_conf" ]]; then
+    # Remove existing cursor hl.env lines if present
+    sed -i '/hl\.env("XCURSOR_THEME"/d' "$hypr_conf"
+    sed -i '/hl\.env("HYPRCURSOR_THEME"/d' "$hypr_conf"
+    sed -i '/hl\.env("XCURSOR_SIZE"/d' "$hypr_conf"
+    sed -i '/hl\.env("HYPRCURSOR_SIZE"/d' "$hypr_conf"
+
+    # Append updated envs
+    cat <<LUA >>"$hypr_conf"
+hl.env("XCURSOR_THEME", "$theme_id")
+hl.env("HYPRCURSOR_THEME", "$theme_id")
+hl.env("XCURSOR_SIZE", "$size")
+hl.env("HYPRCURSOR_SIZE", "$size")
+LUA
+  fi
+
+  if [[ -f "$autostart_conf" ]]; then
+    # Remove previous hyprctl setcursor calls
+    sed -i '/hyprctl setcursor/d' "$autostart_conf"
+    echo "o.exec_on_start(\"hyprctl setcursor $theme_id $size\")" >>"$autostart_conf"
+  fi
+
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl reload >/dev/null 2>&1 || true
+  fi
+
+  # 3. GTK & GNOME settings
+  if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface cursor-theme "$theme_id" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface cursor-size "$size" 2>/dev/null || true
+  fi
+
+  # GTK 3 & 4 settings files
+  mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+  for ini in "$HOME/.config/gtk-3.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"; do
+    if [[ ! -f "$ini" ]]; then
+      cat <<EOF >"$ini"
+[Settings]
+gtk-cursor-theme-name=$theme_id
+gtk-cursor-theme-size=$size
+EOF
+    else
+      if grep -q "^gtk-cursor-theme-name=" "$ini"; then
+        sed -i "s/^gtk-cursor-theme-name=.*/gtk-cursor-theme-name=$theme_id/" "$ini"
+      else
+        sed -i "/^\[Settings\]/a gtk-cursor-theme-name=$theme_id" "$ini"
+      fi
+      if grep -q "^gtk-cursor-theme-size=" "$ini"; then
+        sed -i "s/^gtk-cursor-theme-size=.*/gtk-cursor-theme-size=$size/" "$ini"
+      else
+        sed -i "/^\[Settings\]/a gtk-cursor-theme-size=$size" "$ini"
+      fi
+    fi
+  done
+
+  # 4. XWayland fallback
+  mkdir -p "$HOME/.icons/default"
+  cat <<EOF >"$HOME/.icons/default/index.theme"
+[Icon Theme]
+Inherits=$theme_id
+EOF
+
+  notify "Cursor set to $friendly_name (${size}px)"
+  echo "Successfully applied $friendly_name across Hyprland, GTK, and XWayland."
+}
+
+cmd_catalog() {
+  local json=false
+  if [[ "${1:-}" == "--json" ]]; then
+    json=true
+  fi
+
+  if $json; then
+    local items=()
+    for row in "${CURATED_THEMES[@]}"; do
+      IFS='|' read -r pkg name desc source <<<"$row"
+      items+=("{\"package\":\"$pkg\",\"name\":\"$name\",\"description\":\"$desc\",\"source\":\"$source\"}")
+    done
+    local joined
+    joined=$(IFS=,; echo "${items[*]}")
+    echo "[$joined]"
+  else
+    printf "%-25s %-25s %-8s %s\n" "PACKAGE" "NAME" "SOURCE" "DESCRIPTION"
+    printf "%-25s %-25s %-8s %s\n" "-------------------------" "-------------------------" "--------" "-----------"
+    for row in "${CURATED_THEMES[@]}"; do
+      IFS='|' read -r pkg name desc source <<<"$row"
+      printf "%-25s %-25s %-8s %s\n" "$pkg" "$name" "[$source]" "$desc"
+    done
+  fi
+}
+
+cmd_search() {
+  local query="${1:-}"
+  if [[ -z "$query" ]]; then
+    echo "Usage: omarchy-cursor search <query>" >&2
+    exit 1
+  fi
+
+  echo "Searching AUR and Arch repositories for '$query'..."
+  if command -v yay >/dev/null 2>&1; then
+    yay -Ss "$query" | grep -iE 'cursor' -B1 || true
+  else
+    pacman -Ss "$query"
+  fi
+}
+
+cmd_install() {
+  local target="${1:-}"
+  if [[ -z "$target" ]]; then
+    echo "Usage: omarchy-cursor install <package-name-or-curated-id>" >&2
+    exit 1
+  fi
+
+  local pkg="$target"
+  for row in "${CURATED_THEMES[@]}"; do
+    IFS='|' read -r c_pkg c_name c_desc c_src <<<"$row"
+    if [[ "$target" == "$c_pkg" || "$target" == "$c_name" ]]; then
+      pkg="$c_pkg"
+      break
+    fi
+  done
+
+  echo "Installing cursor package: $pkg..."
+  if command -v omarchy >/dev/null 2>&1; then
+    omarchy pkg aur add "$pkg" || yay -S --needed "$pkg"
+  elif command -v yay >/dev/null 2>&1; then
+    yay -S --needed "$pkg"
+  else
+    sudo pacman -S --needed "$pkg"
+  fi
+
+  echo "Installation complete!"
+  notify "Installed cursor package: $pkg"
+
+  # Ask if interactive
+  if [[ -t 0 && -t 1 ]]; then
+    if command -v gum >/dev/null 2>&1; then
+      if gum confirm "Would you like to select and activate a theme from this package now?"; then
+        cmd_switch
+      fi
+    fi
+  fi
+}
+
+cmd_switch() {
+  local cur_id
+  cur_id=$(get_current_theme)
+
+  declare -A id_to_name
+  declare -A name_to_id
+  local options=()
+
+  for base in "${ICONS_DIRS[@]}"; do
+    [[ -d "$base" ]] || continue
+    for d in "$base"/*; do
+      [[ -d "$d" ]] || continue
+      if [[ -d "$d/cursors" || -d "$d/hyprcursors" ]]; then
+        local id
+        id=$(basename "$d")
+        if [[ -z "${id_to_name[$id]:-}" ]]; then
+          local name="$id"
+          if [[ -f "$d/index.theme" ]]; then
+            local n
+            n=$(grep -m1 '^Name=' "$d/index.theme" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+            [[ -n "$n" ]] && name="$n"
+          fi
+          local label="$name ($id)"
+          if [[ "$id" == "$cur_id" ]]; then
+            label="✓ $label"
+          fi
+          id_to_name["$id"]="$label"
+          name_to_id["$label"]="$id"
+          options+=("$label")
+        fi
+      fi
+    done
+  done
+
+  if (( ${#options[@]} == 0 )); then
+    echo "No cursor themes found."
+    exit 0
+  fi
+
+  local selected_label=""
+  if command -v gum >/dev/null 2>&1; then
+    selected_label=$(printf '%s\n' "${options[@]}" | gum choose --header="Select Cursor Theme:")
+  elif command -v fzf >/dev/null 2>&1; then
+    selected_label=$(printf '%s\n' "${options[@]}" | fzf --prompt="Select Cursor Theme > ")
+  else
+    select opt in "${options[@]}"; do
+      selected_label="$opt"
+      break
+    done
+  fi
+
+  [[ -n "$selected_label" ]] || exit 0
+  local chosen_id="${name_to_id[$selected_label]}"
+
+  # Pick size
+  local cur_size
+  cur_size=$(get_current_size)
+  local chosen_size="$cur_size"
+
+  if command -v gum >/dev/null 2>&1; then
+    chosen_size=$(printf '%s\n' "24" "28" "32" "48" | gum choose --header="Select Cursor Size (current: ${cur_size}px):" --selected="$cur_size")
+  fi
+
+  cmd_set "$chosen_id" "${chosen_size:-24}"
+}
+
+cmd_browse() {
+  local options=()
+  declare -A opt_to_pkg
+
+  for row in "${CURATED_THEMES[@]}"; do
+    IFS='|' read -r pkg name desc src <<<"$row"
+    local opt="[$src] $name — $desc"
+    options+=("$opt")
+    opt_to_pkg["$opt"]="$pkg"
+  done
+  options+=("🔍 Search AUR for another cursor...")
+
+  local choice=""
+  if command -v gum >/dev/null 2>&1; then
+    choice=$(printf '%s\n' "${options[@]}" | gum choose --header="Discover Cursor Themes:")
+  elif command -v fzf >/dev/null 2>&1; then
+    choice=$(printf '%s\n' "${options[@]}" | fzf --prompt="Browse Cursors > ")
+  fi
+
+  [[ -n "$choice" ]] || exit 0
+
+  if [[ "$choice" == *"Search AUR"* ]]; then
+    local q=""
+    if command -v gum >/dev/null 2>&1; then
+      q=$(gum input --placeholder "Search term (e.g. catppuccin, posy, breeze)...")
+    else
+      read -rp "Search term: " q
+    fi
+    [[ -n "$q" ]] || exit 0
+    cmd_search "$q"
+    echo ""
+    read -rp "Enter package name to install (or leave empty to cancel): " target_pkg
+    [[ -n "$target_pkg" ]] && cmd_install "$target_pkg"
+  else
+    local pkg="${opt_to_pkg[$choice]}"
+    cmd_install "$pkg"
+  fi
+}
+
+show_help() {
+  cat <<HELP
+omarchy-cursor — Modern cursor theme manager for Omarchy Linux
+
+Usage:
+  omarchy-cursor <command> [arguments]
+
+Commands:
+  current [--json]          Show current active cursor theme and size
+  list [--json]             List all locally installed cursor themes
+  set <theme-id> [size]     Apply theme across Hyprland, GTK, and XWayland
+  switch                    Interactive TUI selector for installed themes
+  catalog [--json]          Display curated list of recommended themes
+  browse                    Interactive TUI to browse and install themes
+  search <query>            Search AUR and Arch repos for cursor themes
+  install <package>         Install a cursor package from AUR / official repos
+  help                      Show this help message
+
+Examples:
+  omarchy-cursor list
+  omarchy-cursor set breeze_cursors 24
+  omarchy-cursor switch
+  omarchy-cursor browse
+HELP
+}
+
+main() {
+  local action="${1:-help}"
+  shift || true
+
+  case "$action" in
+    current) cmd_current "$@" ;;
+    list)    cmd_list "$@" ;;
+    set)     cmd_set "$@" ;;
+    switch)  cmd_switch "$@" ;;
+    catalog) cmd_catalog "$@" ;;
+    search)  cmd_search "$@" ;;
+    install) cmd_install "$@" ;;
+    browse)  cmd_browse "$@" ;;
+    help|-h|--help) show_help ;;
+    *)
+      echo "Unknown command: $action" >&2
+      show_help >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

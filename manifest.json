@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.muhamm-ad-ahmad.omarchy-cursor",
+  "name": "Omarchy Cursor",
+  "version": "1.0.0",
+  "author": "Muhammad Ahmad",
+  "license": "MIT",
+  "description": "Browse, download, install, and switch cursor themes seamlessly across Hyprland, GTK, and XWayland.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cursor Manager",
+    "category": "Appearance",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
