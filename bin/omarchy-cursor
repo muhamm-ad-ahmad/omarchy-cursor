@@ -132,9 +132,29 @@ cmd_list() {
     done
   done
 
-  # Sort by name
-  IFS=$'\n' sorted=($(sort -t'|' -k2 <<<"${themes[*]}"))
-  unset IFS
+  # Separate active item so it appears first, sort the rest alphabetically
+  local active_item=""
+  local other_items=()
+  for item in "${themes[@]}"; do
+    IFS='|' read -r id name path is_cur <<<"$item"
+    if [[ "$is_cur" == "true" ]]; then
+      active_item="$item"
+    else
+      other_items+=("$item")
+    fi
+  done
+
+  local sorted_others=()
+  if (( ${#other_items[@]} > 0 )); then
+    IFS=$'\n' sorted_others=($(sort -t'|' -k2 -f <<<"${other_items[*]}"))
+    unset IFS
+  fi
+
+  local sorted=()
+  [[ -n "$active_item" ]] && sorted+=("$active_item")
+  if (( ${#sorted_others[@]} > 0 )); then
+    sorted+=("${sorted_others[@]}")
+  fi
 
   if $json; then
     local json_items=()

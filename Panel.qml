@@ -20,7 +20,31 @@ Panel {
   property string currentThemeName: "Breeze Dark"
   property int currentSize: 24
   property string activeTab: "installed" // "installed" or "curated"
+  property string filterText: ""
   property string binPath: Qt.resolvedUrl("bin/omarchy-cursor").toString().replace(/^file:\/\//, "")
+
+  readonly property var filteredInstalledThemes: {
+    var list = root.installedThemes || []
+    if (!root.filterText) return list
+    var q = root.filterText.toLowerCase().trim()
+    return list.filter(function(t) {
+      var n = (t.name || "").toLowerCase()
+      var i = (t.id || "").toLowerCase()
+      return n.indexOf(q) !== -1 || i.indexOf(q) !== -1
+    })
+  }
+
+  function isInstalled(pkg) {
+    if (!root.installedThemes) return false
+    for (var i = 0; i < root.installedThemes.length; i++) {
+      var id = (root.installedThemes[i].id || "").toLowerCase()
+      if (pkg.indexOf("capitaine") !== -1 && id.indexOf("capitaine") !== -1) return true
+      if (pkg.indexOf("breeze") !== -1 && id.indexOf("breeze") !== -1) return true
+      if (pkg.indexOf("bibata") !== -1 && id.indexOf("bibata") !== -1) return true
+      if (pkg.indexOf("catppuccin") !== -1 && id.indexOf("catppuccin") !== -1) return true
+    }
+    return false
+  }
 
   function refresh() {
     if (!listProc.running) listProc.running = true
@@ -50,6 +74,8 @@ Panel {
   onOpenedChanged: {
     if (opened) root.refresh()
   }
+
+  onActiveTabChanged: root.refresh()
 
   Process {
     id: listProc
@@ -120,7 +146,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(340))
+    contentWidth: panel.fittedContentWidth(Style.space(350))
     contentHeight: panel.fittedContentHeight(content.implicitHeight)
 
     PanelKeyCatcher {
@@ -273,7 +299,7 @@ Panel {
 
             Text {
               anchors.centerIn: parent
-              text: "Discover Themes"
+              text: "Discover Online"
               font.bold: root.activeTab === "curated"
               font.pixelSize: Style.font.caption
               color: root.barForeground
@@ -290,58 +316,93 @@ Panel {
         // Tab 1: Installed Themes
         Column {
           width: parent.width
-          spacing: Style.space(4)
+          spacing: Style.space(6)
           visible: root.activeTab === "installed"
 
-          Repeater {
-            model: root.installedThemes.slice(0, 10)
+          // Search Filter Field
+          TextField {
+            width: parent.width
+            placeholderText: "Filter installed cursors..."
+            text: root.filterText
+            font.pixelSize: Style.font.caption
+            onTextChanged: root.filterText = text
+            verticalPadding: Style.space(4)
+          }
 
-            delegate: Rectangle {
-              required property var modelData
-              required property int index
-              width: content.width
-              height: Style.space(32)
-              radius: Style.space(4)
-              readonly property bool isCur: modelData.id === root.currentThemeId
-              color: isCur ? Qt.rgba(1, 1, 1, 0.12) : (mouseArea.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+          ScrollView {
+            id: installedScroll
+            width: parent.width
+            height: Style.space(260)
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Style.space(8)
-                anchors.rightMargin: Style.space(8)
-                spacing: Style.space(8)
+            Column {
+              width: installedScroll.availableWidth
+              spacing: Style.space(4)
 
-                Text {
-                  text: "\uf245"
-                  color: isCur ? (Color.accent || "#7aa2f7") : root.barForeground
-                  opacity: isCur ? 1.0 : 0.5
-                  font.pixelSize: Style.font.body
-                }
-
-                Text {
-                  Layout.fillWidth: true
-                  text: modelData.name || modelData.id
-                  color: root.barForeground
-                  font.bold: isCur
-                  elide: Text.ElideRight
-                  font.pixelSize: Style.font.body
-                }
-
-                Text {
-                  visible: isCur
-                  text: "✓"
-                  color: Color.accent || "#7aa2f7"
-                  font.bold: true
-                  font.pixelSize: Style.font.body
-                }
+              Text {
+                visible: root.filteredInstalledThemes.length === 0
+                text: root.filterText ? "No cursors match \"" + root.filterText + "\"" : "No installed cursors found."
+                color: root.barForeground
+                opacity: 0.6
+                font.pixelSize: Style.font.caption
+                topPadding: Style.space(10)
+                horizontalAlignment: Text.AlignHCenter
+                width: parent.width
               }
 
-              MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.applyCursor(modelData.id, root.currentSize)
+              Repeater {
+                model: root.filteredInstalledThemes
+
+                delegate: Rectangle {
+                  required property var modelData
+                  required property int index
+                  width: installedScroll.availableWidth
+                  height: Style.space(32)
+                  radius: Style.space(4)
+                  readonly property bool isCur: modelData.id === root.currentThemeId
+                  color: isCur ? Qt.rgba(1, 1, 1, 0.12) : (mouseArea.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+
+                  RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(8)
+                    spacing: Style.space(8)
+
+                    Text {
+                      text: "\uf245"
+                      color: isCur ? (Color.accent || "#7aa2f7") : root.barForeground
+                      opacity: isCur ? 1.0 : 0.5
+                      font.pixelSize: Style.font.body
+                    }
+
+                    Text {
+                      Layout.fillWidth: true
+                      text: modelData.name || modelData.id
+                      color: root.barForeground
+                      font.bold: isCur
+                      elide: Text.ElideRight
+                      font.pixelSize: Style.font.body
+                    }
+
+                    Text {
+                      visible: isCur
+                      text: "✓"
+                      color: Color.accent || "#7aa2f7"
+                      font.bold: true
+                      font.pixelSize: Style.font.body
+                    }
+                  }
+
+                  MouseArea {
+                    id: mouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.applyCursor(modelData.id, root.currentSize)
+                  }
+                }
               }
             }
           }
@@ -353,68 +414,89 @@ Panel {
           spacing: Style.space(6)
           visible: root.activeTab === "curated"
 
-          Repeater {
-            model: root.curatedThemes.slice(0, 6)
+          ScrollView {
+            id: curatedScroll
+            width: parent.width
+            height: Style.space(260)
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-            delegate: Rectangle {
-              required property var modelData
-              width: content.width
-              height: Style.space(42)
-              radius: Style.space(4)
-              color: Qt.rgba(1, 1, 1, 0.04)
+            Column {
+              width: curatedScroll.availableWidth
+              spacing: Style.space(6)
 
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Style.space(8)
-                anchors.rightMargin: Style.space(8)
-                spacing: Style.space(6)
+              Repeater {
+                model: root.curatedThemes
 
-                ColumnLayout {
-                  Layout.fillWidth: true
-                  spacing: Style.space(2)
+                delegate: Rectangle {
+                  required property var modelData
+                  width: curatedScroll.availableWidth
+                  height: Style.space(44)
+                  radius: Style.space(4)
+                  color: Qt.rgba(1, 1, 1, 0.04)
+                  readonly property bool alreadyInstalled: root.isInstalled(modelData.package)
 
                   RowLayout {
-                    Text {
-                      text: modelData.name
-                      color: root.barForeground
-                      font.bold: true
-                      font.pixelSize: Style.font.caption
-                    }
-                    Text {
-                      text: "[" + modelData.source + "]"
-                      color: Color.accent || "#7aa2f7"
-                      font.pixelSize: Style.font.caption - 2
-                    }
-                  }
-
-                  Text {
-                    Layout.fillWidth: true
-                    text: modelData.description
-                    color: root.barForeground
-                    opacity: 0.6
-                    elide: Text.ElideRight
-                    font.pixelSize: Style.font.caption - 1
-                  }
-                }
-
-                Rectangle {
-                  width: Style.space(56)
-                  height: Style.space(22)
-                  radius: Style.space(3)
-                  color: Color.accent || "#7aa2f7"
-
-                  Text {
-                    anchors.centerIn: parent
-                    text: "Install"
-                    color: "#000000"
-                    font.bold: true
-                    font.pixelSize: Style.font.caption - 1
-                  }
-
-                  MouseArea {
                     anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openTerminal(root.binPath + " install " + modelData.package)
+                    anchors.leftMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(8)
+                    spacing: Style.space(6)
+
+                    ColumnLayout {
+                      Layout.fillWidth: true
+                      spacing: Style.space(2)
+
+                      RowLayout {
+                        Text {
+                          text: modelData.name
+                          color: root.barForeground
+                          font.bold: true
+                          font.pixelSize: Style.font.caption
+                        }
+                        Text {
+                          text: "[" + modelData.source + "]"
+                          color: Color.accent || "#7aa2f7"
+                          font.pixelSize: Style.font.caption - 2
+                        }
+                      }
+
+                      Text {
+                        Layout.fillWidth: true
+                        text: modelData.description
+                        color: root.barForeground
+                        opacity: 0.6
+                        elide: Text.ElideRight
+                        font.pixelSize: Style.font.caption - 1
+                      }
+                    }
+
+                    Rectangle {
+                      width: Style.space(62)
+                      height: Style.space(24)
+                      radius: Style.space(3)
+                      color: alreadyInstalled ? Qt.rgba(1, 1, 1, 0.1) : (Color.accent || "#7aa2f7")
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: alreadyInstalled ? "Installed" : "Install"
+                        color: alreadyInstalled ? root.barForeground : "#000000"
+                        font.bold: true
+                        font.pixelSize: Style.font.caption - 1
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                          if (alreadyInstalled) {
+                            root.activeTab = "installed"
+                          } else {
+                            root.openTerminal(root.binPath + " install " + modelData.package)
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -422,7 +504,7 @@ Panel {
           }
         }
 
-        // Bottom Actions
+        // Bottom Action Button
         Rectangle {
           width: parent.width
           height: Style.space(30)
@@ -440,7 +522,7 @@ Panel {
             }
 
             Text {
-              text: "Browse & Search All Cursors (TUI)"
+              text: "Search & Install Any Cursor from AUR (TUI)"
               color: root.barForeground
               font.bold: true
               font.pixelSize: Style.font.caption
