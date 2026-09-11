@@ -15,13 +15,26 @@ Panel {
   property var hostWidget: null
 
   property var installedThemes: []
-  property var curatedThemes: []
+  property var curatedThemes: [
+    { package: "capitaine-cursors", name: "Capitaine Cursors", description: "Crisp macOS-inspired cursor pack with clean arrows", source: "extra" },
+    { package: "bibata-cursor-theme", name: "Bibata Modern Classic", description: "Material-based rounded cursor with sharp black accents", source: "aur" },
+    { package: "catppuccin-cursors", name: "Catppuccin Cursors", description: "Soothing pastel cursor themes (Mocha, Macchiato, Frappe, Latte)", source: "aur" },
+    { package: "breeze-cursors", name: "Breeze Cursors", description: "Official KDE Plasma Breeze Dark and Breeze Light cursors", source: "extra" },
+    { package: "breezex-cursor-theme", name: "BreezeX", description: "Modern reimagined Breeze cursors with smooth gradients", source: "aur" },
+    { package: "nordzy-cursors", name: "Nordzy Cursors", description: "Dark aesthetic cursor theme built for the Nord color palette", source: "aur" },
+    { package: "posy-cursor-tweaks", name: "Posy's Cursors", description: "Ergonomic, minimalist high-visibility cursors by Michiel de Boer", source: "aur" },
+    { package: "volantes-cursors", name: "Volantes Cursors", description: "Sharp, geometric, modern cursor pack", source: "aur" },
+    { package: "apple-cursor", name: "Apple Cursor", description: "Pixel-perfect macOS style cursor theme", source: "aur" },
+    { package: "oreo-cursors-git", name: "Oreo Cursors", description: "Modern material design cursors with vibrant accent borders", source: "aur" },
+    { package: "material-cursors", name: "Material Cursors", description: "Clean Material Design cursors with crisp outlines", source: "aur" },
+    { package: "phinger-cursors", name: "Phinger Cursors", description: "Sophisticated, high-visibility cursor theme for Linux", source: "aur" }
+  ]
+
   property string currentThemeId: "breeze_cursors"
   property string currentThemeName: "Breeze Dark"
   property int currentSize: 24
   property string activeTab: "installed" // "installed" or "curated"
   property string filterText: ""
-  property string binPath: Qt.resolvedUrl("bin/omarchy-cursor").toString().replace(/^file:\/\//, "")
 
   readonly property var filteredInstalledThemes: {
     var list = root.installedThemes || []
@@ -42,14 +55,32 @@ Panel {
       if (pkg.indexOf("breeze") !== -1 && id.indexOf("breeze") !== -1) return true
       if (pkg.indexOf("bibata") !== -1 && id.indexOf("bibata") !== -1) return true
       if (pkg.indexOf("catppuccin") !== -1 && id.indexOf("catppuccin") !== -1) return true
+      if (pkg.indexOf("nordzy") !== -1 && id.indexOf("nordzy") !== -1) return true
+      if (pkg.indexOf("posy") !== -1 && id.indexOf("posy") !== -1) return true
+      if (pkg.indexOf("volantes") !== -1 && id.indexOf("volantes") !== -1) return true
+      if (pkg.indexOf("apple") !== -1 && id.indexOf("apple") !== -1) return true
+      if (pkg.indexOf("oreo") !== -1 && id.indexOf("oreo") !== -1) return true
     }
     return false
+  }
+
+  function open() {
+    panelController.show()
+    root.refresh()
+  }
+
+  function close() {
+    panelController.hide()
+  }
+
+  function toggle() {
+    if (root.opened) root.close()
+    else root.open()
   }
 
   function refresh() {
     if (!listProc.running) listProc.running = true
     if (!curProc.running) curProc.running = true
-    if (!catalogProc.running) catalogProc.running = true
   }
 
   function applyCursor(themeId, size) {
@@ -60,7 +91,7 @@ Panel {
       hostWidget.currentTheme = themeId
       hostWidget.currentSize = s
     }
-    applyProc.command = [root.binPath, "set", themeId, String(s)]
+    applyProc.command = ["omarchy-cursor", "set", themeId, String(s)]
     applyProc.running = true
   }
 
@@ -71,22 +102,33 @@ Panel {
     root.close()
   }
 
+  Component.onCompleted: {
+    root.refresh()
+  }
+
   onOpenedChanged: {
     if (opened) root.refresh()
   }
 
-  onActiveTabChanged: root.refresh()
+  onActiveTabChanged: {
+    root.refresh()
+  }
 
   Process {
     id: listProc
-    command: [root.binPath, "list", "--json"]
+    command: ["omarchy-cursor", "list", "--json"]
     running: false
     stdout: StdioCollector {
+      id: listStdout
       waitForEnd: true
-      onStreamFinished: function(text) {
+    }
+    onExited: function(exitCode) {
+      if (exitCode === 0 && listStdout.text) {
         try {
-          var data = JSON.parse(text)
-          if (Array.isArray(data)) root.installedThemes = data
+          var data = JSON.parse(listStdout.text)
+          if (Array.isArray(data)) {
+            root.installedThemes = data
+          }
         } catch (e) {}
       }
     }
@@ -94,13 +136,16 @@ Panel {
 
   Process {
     id: curProc
-    command: [root.binPath, "current", "--json"]
+    command: ["omarchy-cursor", "current", "--json"]
     running: false
     stdout: StdioCollector {
+      id: curStdout
       waitForEnd: true
-      onStreamFinished: function(text) {
+    }
+    onExited: function(exitCode) {
+      if (exitCode === 0 && curStdout.text) {
         try {
-          var cur = JSON.parse(text)
+          var cur = JSON.parse(curStdout.text)
           if (cur && cur.id) {
             root.currentThemeId = cur.id
             root.currentThemeName = cur.name || cur.id
@@ -111,21 +156,6 @@ Panel {
               root.hostWidget.currentSize = cur.size || 24
             }
           }
-        } catch (e) {}
-      }
-    }
-  }
-
-  Process {
-    id: catalogProc
-    command: [root.binPath, "catalog", "--json"]
-    running: false
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: function(text) {
-        try {
-          var cat = JSON.parse(text)
-          if (Array.isArray(cat)) root.curatedThemes = cat
         } catch (e) {}
       }
     }
@@ -287,7 +317,10 @@ Panel {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: root.activeTab = "installed"
+              onClicked: {
+                root.activeTab = "installed"
+                root.refresh()
+              }
             }
           }
 
@@ -308,7 +341,10 @@ Panel {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: root.activeTab = "curated"
+              onClicked: {
+                root.activeTab = "curated"
+                root.refresh()
+              }
             }
           }
         }
@@ -343,7 +379,7 @@ Panel {
 
               Text {
                 visible: root.filteredInstalledThemes.length === 0
-                text: root.filterText ? "No cursors match \"" + root.filterText + "\"" : "No installed cursors found."
+                text: root.filterText ? "No cursors match \"" + root.filterText + "\"" : "Loading installed cursors..."
                 color: root.barForeground
                 opacity: 0.6
                 font.pixelSize: Style.font.caption
@@ -492,7 +528,7 @@ Panel {
                           if (alreadyInstalled) {
                             root.activeTab = "installed"
                           } else {
-                            root.openTerminal(root.binPath + " install " + modelData.package)
+                            root.openTerminal("omarchy-cursor install " + modelData.package)
                           }
                         }
                       }
@@ -532,7 +568,7 @@ Panel {
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.openTerminal(root.binPath + " browse")
+            onClicked: root.openTerminal("omarchy-cursor browse")
           }
         }
       }
