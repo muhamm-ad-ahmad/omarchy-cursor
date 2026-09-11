@@ -65,12 +65,12 @@ Panel {
   }
 
   function open() {
-    panelController.show()
+    root.controller.show()
     root.refresh()
   }
 
   function close() {
-    panelController.hide()
+    root.controller.hide()
   }
 
   function toggle() {
