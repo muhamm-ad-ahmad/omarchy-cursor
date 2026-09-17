@@ -34,6 +34,11 @@ You can install and enable this plugin directly using the Omarchy CLI:
 ```bash
 omarchy plugin add https://github.com/muhamm-ad-ahmad/omarchy-cursor.git --enable
 ```
+The bundled CLI tool `bin/omarchy-cursor` can also be symlinked or placed in `~/.local/bin/`:
+
+```bash
+ln -sf ~/.config/omarchy/plugins/io.github.muhamm-ad-ahmad.omarchy-cursor/bin/omarchy-cursor ~/.local/bin/omarchy-cursor
+```
 
 To enable or move it to a specific section on the bar:
 
@@ -42,14 +47,6 @@ omarchy bar move io.github.muhamm-ad-ahmad.omarchy-cursor --section right
 ```
 
 ---
-
-## Standalone CLI Usage
-
-The bundled CLI tool `bin/omarchy-cursor` can also be symlinked or placed in `~/.local/bin/`:
-
-```bash
-ln -sf ~/.config/omarchy/plugins/io.github.muhamm-ad-ahmad.omarchy-cursor/bin/omarchy-cursor ~/.local/bin/omarchy-cursor
-```
 
 ### CLI Commands
 
