@@ -18,15 +18,15 @@ Panel {
   property var curatedThemes: [
     { package: "capitaine-cursors", name: "Capitaine Cursors", description: "Crisp macOS-inspired cursor pack with clean arrows", source: "extra" },
     { package: "bibata-cursor-theme", name: "Bibata Modern Classic", description: "Material-based rounded cursor with sharp black accents", source: "aur" },
-    { package: "catppuccin-cursors", name: "Catppuccin Cursors", description: "Soothing pastel cursor themes (Mocha, Macchiato, Frappe, Latte)", source: "aur" },
+    { package: "catppuccin-cursors-mocha", name: "Catppuccin Mocha", description: "Soothing pastel dark cursor theme (Mocha)", source: "aur" },
     { package: "breeze-cursors", name: "Breeze Cursors", description: "Official KDE Plasma Breeze Dark and Breeze Light cursors", source: "extra" },
     { package: "breezex-cursor-theme", name: "BreezeX", description: "Modern reimagined Breeze cursors with smooth gradients", source: "aur" },
     { package: "nordzy-cursors", name: "Nordzy Cursors", description: "Dark aesthetic cursor theme built for the Nord color palette", source: "aur" },
-    { package: "posy-cursor-tweaks", name: "Posy's Cursors", description: "Ergonomic, minimalist high-visibility cursors by Michiel de Boer", source: "aur" },
+    { package: "posy-improved-cursors", name: "Posy's Cursors", description: "Ergonomic, minimalist high-visibility cursors by Michiel de Boer", source: "aur" },
     { package: "volantes-cursors", name: "Volantes Cursors", description: "Sharp, geometric, modern cursor pack", source: "aur" },
-    { package: "apple-cursor", name: "Apple Cursor", description: "Pixel-perfect macOS style cursor theme", source: "aur" },
+    { package: "apple_cursor", name: "Apple Cursor", description: "Pixel-perfect macOS style cursor theme", source: "aur" },
     { package: "oreo-cursors-git", name: "Oreo Cursors", description: "Modern material design cursors with vibrant accent borders", source: "aur" },
-    { package: "material-cursors", name: "Material Cursors", description: "Clean Material Design cursors with crisp outlines", source: "aur" },
+    { package: "material-cursors-git", name: "Material Cursors", description: "Clean Material Design cursors with crisp outlines", source: "aur" },
     { package: "phinger-cursors", name: "Phinger Cursors", description: "Sophisticated, high-visibility cursor theme for Linux", source: "aur" }
   ]
 
@@ -52,14 +52,17 @@ Panel {
     for (var i = 0; i < root.installedThemes.length; i++) {
       var id = (root.installedThemes[i].id || "").toLowerCase()
       if (pkg.indexOf("capitaine") !== -1 && id.indexOf("capitaine") !== -1) return true
-      if (pkg.indexOf("breeze") !== -1 && id.indexOf("breeze") !== -1) return true
+      if (pkg.indexOf("breezex") !== -1 && id.indexOf("breezex") !== -1) return true
+      if (pkg === "breeze-cursors" && id.indexOf("breeze") !== -1 && id.indexOf("breezex") === -1) return true
       if (pkg.indexOf("bibata") !== -1 && id.indexOf("bibata") !== -1) return true
       if (pkg.indexOf("catppuccin") !== -1 && id.indexOf("catppuccin") !== -1) return true
       if (pkg.indexOf("nordzy") !== -1 && id.indexOf("nordzy") !== -1) return true
       if (pkg.indexOf("posy") !== -1 && id.indexOf("posy") !== -1) return true
       if (pkg.indexOf("volantes") !== -1 && id.indexOf("volantes") !== -1) return true
-      if (pkg.indexOf("apple") !== -1 && id.indexOf("apple") !== -1) return true
+      if (pkg.indexOf("apple") !== -1 && (id.indexOf("apple") !== -1 || id.indexOf("macos") !== -1)) return true
       if (pkg.indexOf("oreo") !== -1 && id.indexOf("oreo") !== -1) return true
+      if (pkg.indexOf("material") !== -1 && id.indexOf("material") !== -1) return true
+      if (pkg.indexOf("phinger") !== -1 && id.indexOf("phinger") !== -1) return true
     }
     return false
   }

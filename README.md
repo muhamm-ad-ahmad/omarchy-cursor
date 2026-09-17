@@ -79,15 +79,15 @@ omarchy-cursor install bibata-cursor-theme
 
 The plugin includes quick-install support for popular themes:
 - **Bibata Modern** (`bibata-cursor-theme`)
-- **Catppuccin** (`catppuccin-cursors`)
+- **Catppuccin Mocha** (`catppuccin-cursors-mocha`)
 - **Breeze & BreezeX** (`breeze-cursors`, `breezex-cursor-theme`)
 - **Capitaine** (`capitaine-cursors`)
 - **Nordzy** (`nordzy-cursors`)
-- **Posy's Cursors** (`posy-cursor-tweaks`)
+- **Posy's Cursors** (`posy-improved-cursors`)
 - **Volantes** (`volantes-cursors`)
-- **Apple Cursor** (`apple-cursor`)
+- **Apple Cursor** (`apple_cursor`)
 - **Oreo Cursors** (`oreo-cursors-git`)
-- **Material Cursors** (`material-cursors`)
+- **Material Cursors** (`material-cursors-git`)
 - **Phinger Cursors** (`phinger-cursors`)
 
 ---

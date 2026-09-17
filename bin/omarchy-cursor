@@ -10,16 +10,16 @@ ICONS_DIRS=("$HOME/.local/share/icons" "$HOME/.icons" "/usr/share/icons")
 
 CURATED_THEMES=(
   "bibata-cursor-theme|Bibata Modern Classic|Material-based rounded cursor with sharp black accents|aur"
-  "catppuccin-cursors|Catppuccin Cursors|Soothing pastel cursor themes (Mocha, Macchiato, Frappe, Latte)|aur"
+  "catppuccin-cursors-mocha|Catppuccin Mocha|Soothing pastel dark cursor theme (Mocha)|aur"
   "breeze-cursors|Breeze Cursors|Official KDE Plasma Breeze Dark and Breeze Light cursors|extra"
   "breezex-cursor-theme|BreezeX|Modern reimagined Breeze cursors with smooth gradients|aur"
   "capitaine-cursors|Capitaine Cursors|Crisp macOS-inspired cursor pack with clean arrows|extra"
   "nordzy-cursors|Nordzy Cursors|Dark aesthetic cursor theme built for the Nord color palette|aur"
-  "posy-cursor-tweaks|Posy's Cursors|Ergonomic, minimalist high-visibility cursors by Michiel de Boer|aur"
+  "posy-improved-cursors|Posy's Cursors|Ergonomic, minimalist high-visibility cursors by Michiel de Boer|aur"
   "volantes-cursors|Volantes Cursors|Sharp, geometric, modern cursor pack|aur"
-  "apple-cursor|Apple Cursor|Pixel-perfect macOS style cursor theme|aur"
+  "apple_cursor|Apple Cursor|Pixel-perfect macOS style cursor theme|aur"
   "oreo-cursors-git|Oreo Cursors|Modern material design cursors with vibrant accent borders|aur"
-  "material-cursors|Material Cursors|Clean Material Design cursors with crisp outlines|aur"
+  "material-cursors-git|Material Cursors|Clean Material Design cursors with crisp outlines|aur"
   "phinger-cursors|Phinger Cursors|Sophisticated, high-visibility cursor theme for Linux|aur"
 )
 
