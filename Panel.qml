@@ -67,6 +67,11 @@ Panel {
     return false
   }
 
+  readonly property string scriptPath: {
+    var url = Qt.resolvedUrl("bin/omarchy-cursor")
+    return String(url).replace(/^file:\/\//, "")
+  }
+
   function open() {
     root.controller.show()
     root.refresh()
@@ -79,6 +84,12 @@ Panel {
   function toggle() {
     if (root.opened) root.close()
     else root.open()
+  }
+
+  function switchPanel(direction) {
+    if (root.bar && typeof root.bar.switchPanelFrom === "function")
+      return root.bar.switchPanelFrom(root.hostWidget || root, direction)
+    return false
   }
 
   function refresh() {
@@ -94,13 +105,14 @@ Panel {
       hostWidget.currentTheme = themeId
       hostWidget.currentSize = s
     }
-    applyProc.command = ["omarchy-cursor", "set", themeId, String(s)]
+    applyProc.command = [root.scriptPath, "set", themeId, String(s)]
     applyProc.running = true
   }
 
   function openTerminal(cmd) {
     if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-launch-floating-terminal-with-presentation \"" + cmd + "\"")
+      var resolvedCmd = cmd.replace(/^omarchy-cursor\b/, root.scriptPath)
+      root.bar.run("omarchy-launch-floating-terminal-with-presentation \"" + resolvedCmd + "\"")
     }
     root.close()
   }
@@ -119,7 +131,7 @@ Panel {
 
   Process {
     id: listProc
-    command: ["omarchy-cursor", "list", "--json"]
+    command: [root.scriptPath, "list", "--json"]
     running: false
     stdout: StdioCollector {
       id: listStdout
@@ -139,7 +151,7 @@ Panel {
 
   Process {
     id: curProc
-    command: ["omarchy-cursor", "current", "--json"]
+    command: [root.scriptPath, "current", "--json"]
     running: false
     stdout: StdioCollector {
       id: curStdout
@@ -186,6 +198,9 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       onCloseRequested: root.close()
+      onTabRequested: function(direction) {
+        root.switchPanel(direction)
+      }
 
       Column {
         id: content

@@ -1,0 +1,6 @@
+# Omarchy plugin gitignore
+.DS_Store
+*.swp
+*~
+*.bak
+*.bak.*
